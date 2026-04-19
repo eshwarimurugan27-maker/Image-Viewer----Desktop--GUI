@@ -1,0 +1,211 @@
+from tkinter import *
+from tkinter import filedialog
+from PIL import Image, ImageTk, ImageFilter
+
+root = Tk()
+root.title("Image Viewer GUI Project")
+root.state('zoomed')
+
+# Background color
+root.configure(bg="#2c3e50")
+
+# Global variables
+image_list = []
+current_index = 0
+current_image = None
+img_display = None
+zoom_factor = 1.0
+
+# ---------------- FUNCTIONS ---------------- #
+
+def open_images():
+    global image_list, current_index
+    file_paths = filedialog.askopenfilenames(
+        filetypes=[("Image Files", "*.jpg *.png *.jpeg *.bmp")]
+    )
+    if file_paths:
+        image_list = list(file_paths)
+        current_index = 0
+        load_image()
+
+def load_image():
+    global current_image, zoom_factor
+    zoom_factor = 1.0
+    if image_list:
+        current_image = Image.open(image_list[current_index])
+        display_image()
+
+def display_image():
+    global img_display
+    if current_image:
+        img = current_image.copy()
+
+        # Fit image inside window
+        img.thumbnail((900, 450))
+
+        img_display = ImageTk.PhotoImage(img)
+        panel.config(image=img_display, bg="#2c3e50")
+        panel.image = img_display
+
+        update_status()
+
+def next_image():
+    global current_index
+    if image_list:
+        current_index = (current_index + 1) % len(image_list)
+        load_image()
+
+def prev_image():
+    global current_index
+    if image_list:
+        current_index = (current_index - 1) % len(image_list)
+        load_image()
+
+def zoom_in():
+    global zoom_factor, current_image
+    if current_image:
+        zoom_factor += 0.2
+        current_image = current_image.resize((
+            int(current_image.width * 1.2),
+            int(current_image.height * 1.2)
+        ))
+        display_image()
+
+def zoom_out():
+    global zoom_factor, current_image
+    if current_image and zoom_factor > 0.5:
+        zoom_factor -= 0.2
+        current_image = current_image.resize((
+            int(current_image.width * 0.8),
+            int(current_image.height * 0.8)
+        ))
+        display_image()
+
+def rotate_image():
+    global current_image
+    if current_image:
+        current_image = current_image.rotate(90, expand=True)
+        display_image()
+
+def grayscale_image():
+    global current_image
+    if current_image:
+        current_image = current_image.convert("L")
+        display_image()
+
+def blur_image():
+    global current_image
+    if current_image:
+        current_image = current_image.filter(ImageFilter.BLUR)
+        display_image()
+
+def save_image():
+    if current_image:
+        save_path = filedialog.asksaveasfilename(
+            defaultextension=".jpg",
+            filetypes=[("JPEG", "*.jpg"), ("PNG", "*.png")]
+        )
+        if save_path:
+            current_image.save(save_path)
+
+def update_status():
+    status.config(
+        text=f"Image {current_index + 1} of {len(image_list)}",
+        bg="#34495e",
+        fg="white"
+    )
+def next_image():
+    global current_index
+    if len(image_list) <= 1:
+        return
+    current_index = (current_index + 1) % len(image_list)
+    load_image()
+def crop_image():
+    global current_image
+    if current_image:
+        width, height = current_image.size
+        
+        # Crop center area
+        left = width // 4
+        top = height // 4
+        right = width * 3 // 4
+        bottom = height * 3 // 4
+
+        current_image = current_image.crop((left, top, right, bottom))
+        display_image()
+
+import os
+
+def open_location():
+    if image_list:
+        folder_path = os.path.dirname(image_list[current_index])
+        os.startfile(folder_path)
+def copy_path():
+    if image_list:
+        root.clipboard_clear()
+        root.clipboard_append(image_list[current_index])
+def open_external():
+    if image_list:
+        os.startfile(image_list[current_index])
+
+# ---------------- UI DESIGN ---------------- #
+
+# Image display
+panel = Label(root, bg="#2c3e50")
+panel.pack(pady=10)
+
+# -------- Scrollable Button Frame -------- #
+
+container = Frame(root, bg="#2c3e50")
+container.pack(fill=X, side=BOTTOM)
+
+canvas = Canvas(container, height=120, bg="#2c3e50", highlightthickness=0)
+scrollbar = Scrollbar(container, orient=HORIZONTAL, command=canvas.xview)
+
+scrollable_frame = Frame(canvas, bg="#2c3e50")
+
+scrollable_frame.bind(
+    "<Configure>",
+    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+)
+
+canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+canvas.configure(xscrollcommand=scrollbar.set)
+
+canvas.pack(fill=X, side=TOP)
+scrollbar.pack(fill=X, side=BOTTOM)
+
+# -------- Buttons -------- #
+
+buttons = [
+    ("Open", open_images),
+    ("Previous", prev_image),
+    ("Next", next_image),
+    ("Zoom In", zoom_in),
+    ("Zoom Out", zoom_out),
+    ("Rotate", rotate_image),
+    ("Grayscale", grayscale_image),
+    ("Blur", blur_image),
+    ("Save As", save_image),
+    ("Crop", crop_image),
+    ("Open Folder", open_location),
+    ("Copy Path", copy_path),
+    ("Open Externally", open_external)
+]
+
+for i, (text, cmd) in enumerate(buttons):
+    Button(
+        scrollable_frame,
+        text=text,
+        command=cmd,
+        width=15,
+        bg="#1abc9c",
+        fg="white"
+    ).grid(row=0, column=i, padx=5, pady=20)
+
+# Status bar
+status = Label(root, text="No Image Loaded", bd=1, relief=SUNKEN)
+status.pack(fill=X)
+
+# Run
+root.mainloop()
